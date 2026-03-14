@@ -75,10 +75,6 @@ class LivroController extends Livro {
         try {
             const idLivro = parseInt(req.params.id_livro as string);
 
-            if (isNaN(idLivro)) {
-                return res.status(400).json({ mensagem: "ID do livro inválido." });
-            }
-
             const dadosRecebidos: LivroDTO = req.body;
 
             const livro = new Livro(
