@@ -217,6 +217,47 @@ class Aluno {
             return null;
         }
     }
+
+    /**
+    * Cadastra um novo aluno no banco de dados
+    * @param aluno Objeto Aluno contendo as informações a serem cadastradas
+    * @returns Boolean indicando se o cadastro foi bem-sucedido
+    */
+    static async cadastrarAluno(aluno: Aluno): Promise<boolean> {
+        try {
+            // Cria a consulta (query) para inserir o registro de um aluno no banco de dados, retorna o ID do aluno que foi criado no final
+            const queryInsertAluno = `INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
+                                            VALUES (
+                                                '${aluno.getNome().toUpperCase()}',
+                                                '${aluno.getSobrenome().toUpperCase()}',
+                                                '${aluno.getDataNascimento()}',
+                                                '${aluno.getEndereco().toUpperCase()}',
+                                                '${aluno.getEmail().toLowerCase()}',
+                                                '${aluno.getCelular()}'
+                                            )
+                                            RETURNING id_aluno;`;
+
+            // Executa a query no banco de dados e armazena o resultado
+            const result = await database.query(queryInsertAluno);
+
+            // verifica se a quantidade de linhas que foram alteradas é maior que 0
+            if (result.rows.length > 0) {
+                // Exibe a mensagem de sucesso
+                console.log(`Aluno cadastrado com sucesso. ID: ${result.rows[0].id_aluno}`);
+                // retorna verdadeiro
+                return true;
+            }
+
+            // caso a consulta não tenha tido sucesso, retorna falso
+            return false;
+            // captura erro
+        } catch (error) {
+            // Exibe mensagem com detalhes do erro no console
+            console.error(`Erro ao cadastrar aluno: ${error}`);
+            // retorna falso
+            return false;
+        }
+    }
 }
 
 export default Aluno;
