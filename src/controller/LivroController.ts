@@ -73,7 +73,7 @@ class LivroController extends Livro {
 
     static async atualizar(req: Request, res: Response): Promise<Response> {
         try {
-            const idLivro = parseInt(req.query.idLivro as string);
+            const idLivro = parseInt(req.params.id_livro as string);
 
             if (isNaN(idLivro)) {
                 return res.status(400).json({ mensagem: "ID do livro inválido." });
