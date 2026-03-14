@@ -258,42 +258,30 @@ class Aluno {
     * @returns Boolean indicando se a remoção foi bem-sucedida
    */
     static async removerAluno(id_aluno: number): Promise<boolean> {
-        // variável para controle de resultado da consulta (query)
         try {
-            // recupera o objeto do aluno a ser deletado
             const aluno: AlunoDTO | null = await this.listarAluno(id_aluno);
 
-            // verifica se o objeto é válido e depois se o status_aluno é TRUE
             if (aluno && aluno.status_aluno) {
-                // Cria a consulta (query) para remover o aluno
                 const queryDeleteEmprestimoAluno = `UPDATE emprestimo 
-                                                        SET status_emprestimo_registro = FALSE
-                                                        WHERE id_aluno=${id_aluno};`;
-
-                // remove os emprestimos associado ao aluno
+                                                    SET status_emprestimo_registro = FALSE
+                                                    WHERE id_aluno=${id_aluno};`;
                 await database.query(queryDeleteEmprestimoAluno);
 
-                // Construção da query SQL para deletar o Aluno.
                 const queryDeleteAluno = `UPDATE aluno 
-                                            SET status_aluno = FALSE
-                                            WHERE id_aluno=${id_aluno};`;
+                                        SET status_aluno = FALSE
+                                        WHERE id_aluno=${id_aluno};`;
 
-                // Executa a query de exclusão e verifica se a operação foi bem-sucedida.
-                await database.query(queryDeleteAluno)
-                    .then((result: any) => {
-                        if (result.rowCount != 0) {
-                            return true; // Se a operação foi bem-sucedida, define queryResult como true.
-                        }
-                    });
+                // Captura o resultado e usa await ao invés de .then()
+                const result = await database.query(queryDeleteAluno);
+
+                // Retorna true ou false baseado no rowCount
+                return result.rowCount != 0;
             }
-            // retorna o resultado da query
+
             return false;
 
-            // captura qualquer erro que aconteça
         } catch (error) {
-            // Em caso de erro na consulta, exibe o erro no console e retorna false.
             console.log(`Erro na consulta: ${error}`);
-            // retorna false
             return false;
         }
     }
