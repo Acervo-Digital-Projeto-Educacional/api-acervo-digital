@@ -277,7 +277,7 @@ class Livro {
 
                 // Executa a query de exclusão e verifica se a operação foi bem-sucedida.
                 const result = await database.query(queryDeleteLivro);
-                    
+
                 return result.rowCount != 0;
             }
 
@@ -289,6 +289,48 @@ class Livro {
             return false;
         }
     }
+
+    /**
+     * Atualiza os dados de um livro no banco de dados.
+     * @param livro Objeto do tipo Livro com os novos dados
+     * @returns true caso sucesso, false caso erro
+     */
+    static async atualizarLivro(livro: Livro): Promise<boolean> {
+        try {
+            const livroConsulta: LivroDTO | null = await this.listarLivro(livro.id_livro);
+
+            if (livroConsulta && livroConsulta.status_livro) {
+                // Construção da query SQL para atualizar os dados do livro no banco de dados.
+                const queryAtualizarLivro = `UPDATE Livro SET 
+                                            titulo = '${livro.getTitulo().toUpperCase()}', 
+                                            autor = '${livro.getAutor().toUpperCase()}',
+                                            editora = '${livro.getEditora().toUpperCase()}', 
+                                            ano_publicacao = '${livro.getAnoPublicacao().toUpperCase()}',
+                                            isbn = '${livro.getIsbn().toUpperCase()}', 
+                                            quant_total = ${livro.getQuantTotal()},
+                                            quant_disponivel = ${livro.getQuantDisponivel()},
+                                            valor_aquisicao = ${livro.getValorAquisicao()},
+                                            status_livro_emprestado = '${livro.getStatusLivroEmprestado().toUpperCase()}'                                           
+                                        WHERE id_livro = ${livro.id_livro}`;
+
+                // Executa a query de atualização e verifica se a operação foi bem-sucedida.
+                const respostaBD = await database.query(queryAtualizarLivro);
+
+                if(respostaBD.rowCount != 0) {
+                    return true;
+                }
+            }
+
+            return false;
+            // captura qualquer erro que possa acontecer
+        } catch (error) {
+            // exibe detalhes do erro no console
+            console.log(`Erro na consulta: ${error}`);
+            // retorna o valor da variável de controle
+            return false;
+        }
+    }
+
 }
 
 export default Livro;
