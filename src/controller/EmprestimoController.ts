@@ -16,19 +16,20 @@ class EmprestimoController extends Emprestimo {
     */
     // Método estático e assíncrono que busca todos os empréstimos ativos e os retorna em JSON
     // "Promise<Response>" indica que este método sempre retorna uma resposta HTTP ao final
-    static async todos(req: Request, res: Response): Promise<Response> {
+    static async todos(req: Request, res: Response) {
         try {
-            // Chama o método do model para buscar todos os empréstimos ativos no banco
-            // O resultado já vem com os dados de aluno e livro embutidos (graças ao JOIN da query)
             const listaDeEmprestimos = await Emprestimo.listarEmprestimos();
 
-            // Retorna a lista em formato JSON com status HTTP 200 (OK — requisição bem-sucedida)
-            return res.status(200).json(listaDeEmprestimos);
+            if (listaDeEmprestimos.length === 0) {
+                res.status(204).send();
+                return;
+            }
+
+            res.status(200).json(listaDeEmprestimos);
+
         } catch (error) {
-            // Exibe os detalhes do erro no console do servidor para facilitar o debug
-            console.error('Erro ao listar empréstimos:', error);
-            // Retorna mensagem de erro com status HTTP 500 (Internal Server Error)
-            return res.status(500).json({ mensagem: 'Erro ao listar os empréstimos.' });
+            console.error(`[EmprestimoController] Erro ao listar empréstimos:`, error);
+            res.status(500).json({ mensagem: "Erro interno ao recuperar a lista de empréstimos." });
         }
     }
 
@@ -41,20 +42,25 @@ class EmprestimoController extends Emprestimo {
     // Método que busca um único empréstimo com base no ID informado na URL (ex: GET /emprestimo/5)
     static async emprestimo(req: Request, res: Response) {
         try {
-            // Lê o parâmetro "id" da URL, converte de string para número inteiro e já tipifica como number
-            // O "as string" garante ao TypeScript que o valor existe e é uma string antes do parseInt
-            const idEmprestimo: number = parseInt(req.params.id as string);
+            const idEmprestimo = parseInt(req.params.id as string);
 
-            // Chama o método do model passando o ID para buscar o empréstimo específico no banco
+            if (isNaN(idEmprestimo) || idEmprestimo <= 0) {
+                res.status(400).json({ mensagem: "ID inválido. Informe um número inteiro positivo." });
+                return;
+            }
+
             const emprestimo = await Emprestimo.listarEmprestimo(idEmprestimo);
-            // Retorna o objeto do empréstimo em JSON com status HTTP 200 (OK)
             res.status(200).json(emprestimo);
-        } catch (error) {
-            // Exibe o erro no console do servidor
-            console.log(`Erro ao acessar método herdado: ${error}`);
-            // Retorna mensagem de erro com status HTTP 500
-            // ⚠️ Observação: o comentário diz "status code 400" mas o código usa 500 — são códigos diferentes
-            res.status(500).json("Erro ao recuperar as informações do aluno.");
+
+        } catch (error: any) {
+            console.error(`[EmprestimoController] Erro ao buscar empréstimo (id: ${req.params.id}):`, error);
+
+            if (error.message?.includes("não encontrado")) {
+                res.status(404).json({ mensagem: error.message });
+                return;
+            }
+
+            res.status(500).json({ mensagem: "Erro interno ao recuperar o empréstimo." });
         }
     }
 
@@ -63,38 +69,34 @@ class EmprestimoController extends Emprestimo {
      * Recebe os dados do empréstimo a partir da requisição e passa para o serviço.
      */
     // Método que recebe os dados do front-end e cria um novo empréstimo no banco de dados
-    static async cadastrar(req: Request, res: Response): Promise<Response> {
+    static async cadastrar(req: Request, res: Response) {
         try {
-            // Lê o corpo da requisição HTTP e tipifica como EmprestimoDTO
-            // O front-end envia os dados do novo empréstimo no corpo da requisição em formato JSON
             const dadosRecebidos: EmprestimoDTO = req.body;
 
-            // Cria um novo objeto Emprestimo com os dados recebidos do front-end
+            if (!dadosRecebidos.aluno?.id_aluno || !dadosRecebidos.livro?.id_livro || !dadosRecebidos.data_emprestimo) {
+                res.status(400).json({ mensagem: "Campos obrigatórios ausentes: id_aluno, id_livro e data_emprestimo." });
+                return;
+            }
+
             const emprestimo = new Emprestimo(
-                dadosRecebidos.aluno.id_aluno,    // ID do aluno — vem do objeto aninhado "aluno" do DTO
-                dadosRecebidos.livro.id_livro,    // ID do livro — vem do objeto aninhado "livro" do DTO
-                new Date(dadosRecebidos.data_emprestimo), // Converte a data recebida (string) para objeto Date
-                dadosRecebidos.status_emprestimo ?? "", // Se não informado, usa string vazia como padrão
-                // Se data_devolucao foi informada, converte para Date; senão passa undefined
-                // Quando undefined, o construtor de Emprestimo calcula automaticamente (data_emprestimo + 7 dias)
+                dadosRecebidos.aluno.id_aluno,
+                dadosRecebidos.livro.id_livro,
+                new Date(dadosRecebidos.data_emprestimo),
+                dadosRecebidos.status_emprestimo ?? "",
                 dadosRecebidos.data_devolucao ? new Date(dadosRecebidos.data_devolucao) : undefined
             );
 
-            // Chama o método do model para persistir o novo empréstimo no banco de dados
             const result = await Emprestimo.cadastrarEmprestimo(emprestimo);
 
-            // Verifica o retorno do model: true = cadastro bem-sucedido, false = falha
             if (result) {
-                // Retorna mensagem de sucesso com status HTTP 201 (Created — recurso criado com sucesso)
-                return res.status(201).json({ mensagem: 'Empréstimo cadastrado com sucesso.' });
+                res.status(201).json({ mensagem: "Empréstimo cadastrado com sucesso." });
             } else {
-                // Retorna mensagem de erro com status HTTP 500 se o banco não conseguiu salvar
-                return res.status(500).json({ mensagem: 'Não foi possível cadastrar o livro no banco de dados.' });
+                res.status(400).json({ mensagem: "Não foi possível cadastrar o empréstimo." });
             }
+
         } catch (error) {
-            // Exibe o erro no console e retorna status HTTP 500 em caso de exceção inesperada
-            console.error('Erro ao cadastrar empréstimo:', error);
-            return res.status(500).json({ mensagem: 'Erro ao cadastrar o empréstimo.' });
+            console.error(`[EmprestimoController] Erro ao cadastrar empréstimo:`, error);
+            res.status(500).json({ mensagem: "Erro interno ao cadastrar o empréstimo." });
         }
     }
 
@@ -103,40 +105,46 @@ class EmprestimoController extends Emprestimo {
      * Recebe os dados do empréstimo a partir da requisição e passa para o serviço.
      */
     // Método que recebe os novos dados do front-end e atualiza o empréstimo no banco
-    static async atualizar(req: Request, res: Response): Promise<Response> {
+    static async atualizar(req: Request, res: Response) {
         try {
-            // Lê o corpo da requisição e tipifica como EmprestimoDTO
-            const dadosRecebidos: EmprestimoDTO = req.body;
-            // Lê o parâmetro "id" da URL e converte para número inteiro
-            // Exemplo de URL: PUT /emprestimo/4  →  idEmprestimo = 4
             const idEmprestimo = parseInt(req.params.id as string);
 
-            // Chama o método do model passando cada campo individualmente como parâmetro
-            // Diferente do cadastrar, o atualizarEmprestimo recebe os dados separados (não um objeto Emprestimo)
+            if (isNaN(idEmprestimo) || idEmprestimo <= 0) {
+                res.status(400).json({ mensagem: "ID inválido. Informe um número inteiro positivo." });
+                return;
+            }
+
+            const dadosRecebidos: EmprestimoDTO = req.body;
+
+            if (!dadosRecebidos.aluno?.id_aluno || !dadosRecebidos.livro?.id_livro || !dadosRecebidos.data_emprestimo) {
+                res.status(400).json({ mensagem: "Campos obrigatórios ausentes: id_aluno, id_livro e data_emprestimo." });
+                return;
+            }
+
             const result = await Emprestimo.atualizarEmprestimo(
-                idEmprestimo,                              // ID do empréstimo a ser atualizado (usado no WHERE da query)
-                dadosRecebidos.aluno.id_aluno,             // Novo ID do aluno
-                dadosRecebidos.livro.id_livro,             // Novo ID do livro
-                new Date(dadosRecebidos.data_emprestimo),  // Nova data de empréstimo convertida para Date
-                // Se data_devolucao foi informada, converte para Date; senão usa a data atual como fallback
-                // ⚠️ Diferença do cadastrar: aqui usa new Date() (data atual) ao invés de undefined
+                idEmprestimo,
+                dadosRecebidos.aluno.id_aluno,
+                dadosRecebidos.livro.id_livro,
+                new Date(dadosRecebidos.data_emprestimo),
                 dadosRecebidos.data_devolucao ? new Date(dadosRecebidos.data_devolucao) : new Date(),
-                dadosRecebidos.status_emprestimo ?? ""     // Novo status — usa string vazia se não informado
+                dadosRecebidos.status_emprestimo ?? ""
             );
 
-            // Verifica o retorno do model: true = atualização bem-sucedida, false = falha
             if (result) {
-                // Retorna mensagem de sucesso com status HTTP 200 (OK)
-                return res.status(200).json({ mensagem: 'Empréstimo atualizado com sucesso.' });
+                res.status(200).json({ mensagem: "Empréstimo atualizado com sucesso." });
             } else {
-                // Retorna mensagem de erro com status HTTP 500
-                // ⚠️ Observação: a mensagem diz "cadastrar o livro" mas deveria dizer "atualizar o empréstimo"
-                return res.status(500).json({ mensagem: 'Não foi possível cadastrar o livro no banco de dados.' });
+                res.status(404).json({ mensagem: "Empréstimo não encontrado." });
             }
-        } catch (error) {
-            // Exibe o erro no console e retorna status HTTP 500 em caso de exceção
-            console.error('Erro ao atualizar empréstimo:', error);
-            return res.status(500).json({ mensagem: 'Erro ao atualizar o empréstimo.' });
+
+        } catch (error: any) {
+            console.error(`[EmprestimoController] Erro ao atualizar empréstimo (id: ${req.params.id}):`, error);
+
+            if (error.message?.includes("não encontrado")) {
+                res.status(404).json({ mensagem: error.message });
+                return;
+            }
+
+            res.status(500).json({ mensagem: "Erro interno ao atualizar o empréstimo." });
         }
     }
 
@@ -148,29 +156,32 @@ class EmprestimoController extends Emprestimo {
     * @returns Mensagem de sucesso ou erro em formato JSON.
     */
     // Método que recebe um ID pela URL e realiza a remoção lógica do empréstimo no banco
-    static async remover(req: Request, res: Response): Promise<Response> {
+    static async remover(req: Request, res: Response) {
         try {
-            // Lê o parâmetro "id" da URL e converte para número inteiro
-            // Exemplo de URL: DELETE /emprestimo/2  →  idEmprestimo = 2
             const idEmprestimo = parseInt(req.params.id as string);
-            // Chama o método do model para remover (logicamente) o empréstimo com o ID informado
-            // O resultado é um booleano: true = removido com sucesso, false = não encontrado ou já inativo
-            const resultado = await Emprestimo.removerEmprestimo(idEmprestimo);
 
-            // Verifica se a remoção foi bem-sucedida
-            if (resultado) {
-                // Retorna mensagem de sucesso com status HTTP 200 (OK)
-                return res.status(200).json({ mensagem: 'Empréstimo removido com sucesso!' });
-            } else {
-                // Retorna mensagem de erro com status HTTP 500 se não foi possível remover
-                return res.status(500).json({ mensagem: 'Erro ao remover empréstimo!' });
+            if (isNaN(idEmprestimo) || idEmprestimo <= 0) {
+                res.status(400).json({ mensagem: "ID inválido. Informe um número inteiro positivo." });
+                return;
             }
 
-        } catch (error) {
-            // Exibe os detalhes do erro no console do servidor
-            console.log(`Erro ao remover o Empréstimo ${error}`);
-            // Retorna mensagem de erro com status HTTP 500 em caso de exceção inesperada
-            return res.status(500).json({ mensagem: "Erro ao remover empréstimo." });
+            const resultado = await Emprestimo.removerEmprestimo(idEmprestimo);
+
+            if (resultado) {
+                res.status(200).json({ mensagem: "Empréstimo removido com sucesso." });
+            } else {
+                res.status(404).json({ mensagem: "Empréstimo não encontrado." });
+            }
+
+        } catch (error: any) {
+            console.error(`[EmprestimoController] Erro ao remover empréstimo (id: ${req.params.id}):`, error);
+
+            if (error.message?.includes("não encontrado")) {
+                res.status(404).json({ mensagem: error.message });
+                return;
+            }
+
+            res.status(500).json({ mensagem: "Erro interno ao remover o empréstimo." });
         }
     }
 }
