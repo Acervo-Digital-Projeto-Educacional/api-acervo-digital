@@ -1,94 +1,93 @@
 // Importa o Router do Express — é ele quem permite criar e organizar as rotas da aplicação
-// Request e Response são os tipos que representam a requisição e a resposta HTTP
+// Request e Response são os tipos TypeScript que representam a requisição e a resposta HTTP
+// O "type" antes de Request e Response indica que são importações apenas de tipo (não geram código JS)
 import { Router, type Request, type Response } from "express";
-// Importa o controller de Aluno — é ele quem possui os métodos chamados em cada rota
+
+// Importa os controllers — cada um é responsável por tratar as requisições de sua entidade
+// É o controller quem recebe os dados da requisição, chama o model e devolve a resposta ao cliente
 import AlunoController from "./controller/AlunoController.js";
-// Importa o controller de Livro
 import LivroController from "./controller/LivroController.js";
-// Importa o controller de Emprestimo
 import EmprestimoController from "./controller/EmprestimoController.js";
 
 // Cria uma instância do Router — é neste objeto que todas as rotas serão registradas
-// O router é depois exportado e conectado ao servidor principal (geralmente no app.ts ou server.ts)
+// Cada rota associa um método HTTP + caminho de URL a um método do controller
+// O router é exportado e registrado no server.ts com server.use(router)
 const router = Router();
 
-/**
- * Endpoint padrão
- */
-// Rota GET na raiz "/" — serve para verificar se a API está no ar (chamada de "health check")
-// Quando acessada, retorna uma mensagem simples confirmando que o servidor está funcionando
+// ==================== HEALTH CHECK ====================
+
+// Rota GET na raiz "/" — usada para verificar se a API está no ar ("health check")
+// Retorna uma mensagem de confirmação e o timestamp atual do servidor
+// Útil para monitoramento: ferramentas de infraestrutura acessam essa rota para saber se o servidor está vivo
 router.get('/', (req: Request, res: Response) => {
-    res
-        .status(200) // Status HTTP 200 (OK)
-        // Retorna uma mensagem em JSON com a data e hora atual do servidor
-        // Isso ajuda a confirmar não só que está no ar, mas também quando foi acessado
-        .json({ mensagem: "Aplicação online.", timestamp: new Date() });
+    res.status(200).json({ mensagem: "Aplicação online.", timestamp: new Date() });
 });
 
 // ==================== ENDPOINTS DE ALUNO ====================
-// Cada rota combina: MÉTODO HTTP + CAMINHO + MÉTODO DO CONTROLLER responsável por tratar a requisição
+// Padrão REST: cada operação usa um método HTTP diferente no mesmo recurso (/api/alunos)
+// GET    → leitura       POST → criação
+// PUT    → atualização   DELETE → remoção
 
-// GET /api/alunos — busca e retorna a lista completa de alunos ativos
-// Chama o método AlunoController.todos quando essa rota é acessada
+// Lista todos os alunos ativos — o controller chama o model e retorna o array em JSON
 router.get('/api/alunos', AlunoController.todos);
 
-// GET /api/alunos/:id — busca e retorna os dados de um aluno específico pelo ID
-// O ":id" é um parâmetro dinâmico na URL — ex: /api/alunos/3 busca o aluno de ID 3
+// Busca um aluno específico pelo ID informado na URL
+// ":id" é um parâmetro dinâmico — ex: GET /api/alunos/3 busca o aluno de ID 3
+// O valor é lido no controller via req.params.id
 router.get('/api/alunos/:id', AlunoController.aluno);
 
-// POST /api/alunos — cadastra um novo aluno no banco de dados
-// Os dados do novo aluno chegam no corpo (body) da requisição, não na URL
+// Cadastra um novo aluno — os dados chegam no corpo (body) da requisição em formato JSON
+// O body é lido no controller via req.body
 router.post('/api/alunos', AlunoController.cadastrar);
 
-// DELETE /api/alunos/:id — realiza a remoção lógica do aluno com o ID informado
-// Ex: DELETE /api/alunos/3 desativa o aluno de ID 3 (não apaga do banco)
+// Remove logicamente o aluno com o ID informado — não apaga do banco, apenas desativa (status = FALSE)
+// Também desativa todos os empréstimos relacionados ao aluno
 router.delete('/api/alunos/:id', AlunoController.remover);
 
-// PUT /api/alunos/:id — atualiza os dados do aluno com o ID informado
-// O ID vem pela URL e os novos dados vêm no corpo da requisição
+// Atualiza os dados do aluno com o ID informado
+// O ID vem pela URL (req.params.id) e os novos dados vêm no body (req.body)
 router.put('/api/alunos/:id', AlunoController.atualizar);
 
 // ==================== ENDPOINTS DE LIVRO ====================
 
-// GET /api/livros — busca e retorna a lista completa de livros ativos
+// Lista todos os livros ativos
 router.get('/api/livros', LivroController.todos);
 
-// GET /api/livros/:id — busca e retorna os dados de um livro específico pelo ID
-// Ex: /api/livros/5 retorna os dados do livro de ID 5
+// Busca um livro específico pelo ID informado na URL
+// Ex: GET /api/livros/5 retorna os dados do livro de ID 5
 router.get('/api/livros/:id', LivroController.livro);
 
-// POST /api/livros — cadastra um novo livro no banco de dados
-// Os dados do novo livro chegam no corpo da requisição
+// Cadastra um novo livro — os dados chegam no body da requisição
 router.post('/api/livros', LivroController.cadastrar);
 
-// DELETE /api/livros/:id — realiza a remoção lógica do livro com o ID informado
-// O model também desativa os empréstimos relacionados ao livro antes de desativá-lo
+// Remove logicamente o livro com o ID informado
+// Antes de desativar o livro, o model desativa todos os empréstimos relacionados a ele
 router.delete('/api/livros/:id', LivroController.remover);
 
-// PUT /api/livros/:id — atualiza os dados do livro com o ID informado
+// Atualiza os dados do livro com o ID informado
 router.put('/api/livros/:id', LivroController.atualizar);
 
 // ==================== ENDPOINTS DE EMPRÉSTIMO ====================
 
-// GET /api/emprestimos — busca e retorna a lista completa de empréstimos ativos
-// Os dados já vêm com as informações do aluno e do livro embutidas (graças ao JOIN da query)
+// Lista todos os empréstimos ativos
+// Os dados já vêm com as informações completas do aluno e do livro embutidas
+// Isso é possível porque a query do model usa JOIN entre as tabelas Emprestimo, Aluno e Livro
 router.get('/api/emprestimos', EmprestimoController.todos);
 
-// GET /api/emprestimos/:id — busca e retorna os dados de um empréstimo específico pelo ID
-// Ex: /api/emprestimos/2 retorna o empréstimo de ID 2 com dados do aluno e do livro
+// Busca um empréstimo específico pelo ID informado na URL
+// Ex: GET /api/emprestimos/2 retorna o empréstimo de ID 2 com os dados do aluno e do livro
 router.get('/api/emprestimos/:id', EmprestimoController.emprestimo);
 
-// POST /api/emprestimos — cadastra um novo empréstimo no banco de dados
-// Os dados chegam no corpo da requisição com os IDs do aluno e do livro dentro de objetos aninhados
+// Cadastra um novo empréstimo — os dados chegam no body com os objetos "aluno" e "livro" aninhados
+// Ex: { aluno: { id_aluno: 1 }, livro: { id_livro: 3 }, data_emprestimo: "2024-01-15" }
 router.post('/api/emprestimos', EmprestimoController.cadastrar);
 
-// DELETE /api/emprestimos/:id — realiza a remoção lógica do empréstimo com o ID informado
+// Remove logicamente o empréstimo com o ID informado (status_emprestimo_registro = FALSE)
 router.delete('/api/emprestimos/:id', EmprestimoController.remover);
 
-// PUT /api/emprestimos/:id — atualiza os dados do empréstimo com o ID informado
+// Atualiza os dados do empréstimo com o ID informado
 router.put('/api/emprestimos/:id', EmprestimoController.atualizar);
 
-// Exporta o router para que possa ser registrado no servidor principal da aplicação
-// O uso de "export { router }" (exportação nomeada) ao invés de "export default" permite
-// importar com um nome explícito: import { router } from "./routes.js"
-export { router }
+// Exporta o router para ser registrado no server.ts via server.use(router)
+// Exportação nomeada { router } permite importar com nome explícito: import { router } from "./routes.js"
+export { router };
