@@ -266,7 +266,7 @@ class Aluno {
             // Query SQL de inserção — os "$1", "$2"... são placeholders substituídos pelos valores reais
             // "RETURNING id_aluno" faz o banco retornar o ID gerado automaticamente após o INSERT
             const queryInsertAluno = `INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
-                                            VALUES ('$1','$2','$3','$4','$5','$6') RETURNING id_aluno;`;
+                                VALUES ($1, $2, $3, $4, $5, $6) RETURNING id_aluno;`;
 
             // Executa a query passando os valores do objeto aluno
             // .toUpperCase() converte texto para maiúsculas; .toLowerCase() converte para minúsculas
