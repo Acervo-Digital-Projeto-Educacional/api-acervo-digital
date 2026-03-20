@@ -41,7 +41,6 @@ class Livro {
         _isbn: string,             // ISBN do livro — obrigatório
         _quant_total: number,      // Quantidade total de exemplares — obrigatório
         _quant_disponivel: number, // Quantidade disponível para empréstimo — obrigatório
-        _quant_aquisicao: number,  // Quantidade adquirida (recebido, mas não usado no construtor — ver abaixo)
         _valor_aquisicao: number   // Valor de aquisição — obrigatório
     ) {
         // Atribui os valores recebidos aos atributos internos da classe
@@ -53,8 +52,6 @@ class Livro {
         this.quant_total = _quant_total;
         this.quant_disponivel = _quant_disponivel;
         this.valor_aquisicao = _valor_aquisicao;
-        // ⚠️ Atenção: o parâmetro "_quant_aquisicao" é recebido mas nunca atribuído a nenhum atributo
-        // Isso provavelmente é um esquecimento no código original
     }
 
     // ==================== GETTERS E SETTERS ====================
@@ -132,6 +129,7 @@ class Livro {
         this.quant_disponivel = value;
     }
 
+
     // Getter: retorna o valor de aquisição do livro
     public getValorAquisicao(): number {
         return this.valor_aquisicao;
@@ -194,7 +192,6 @@ class Livro {
                     isbn: livro.isbn,                                   // ISBN
                     quant_total: livro.quant_total,                     // Quantidade total
                     quant_disponivel: livro.quant_disponivel,           // Quantidade disponível
-                    quant_aquisicao: livro.quant_aquisicao,             // Quantidade de aquisição
                     valor_aquisicao: livro.valor_aquisicao,             // Valor de aquisição
                     status_livro_emprestado: livro.status_livro_emprestado, // Status de empréstimo
                     status_livro: livro.status_livro                    // Status ativo/inativo
@@ -242,7 +239,6 @@ class Livro {
                 isbn: respostaBD.rows[0].isbn,
                 quant_total: respostaBD.rows[0].quant_total,
                 quant_disponivel: respostaBD.rows[0].quant_disponivel,
-                quant_aquisicao: respostaBD.rows[0].quant_aquisicao,
                 valor_aquisicao: respostaBD.rows[0].valor_aquisicao,
                 status_livro_emprestado: respostaBD.rows[0].status_livro_emprestado,
                 status_livro: respostaBD.rows[0].status_livro
@@ -265,7 +261,7 @@ class Livro {
     // Recebe um objeto Livro completo e tenta inseri-lo no banco de dados
     static async cadastrarLivro(livro: Livro): Promise<boolean> {
         try {
-            // Query SQL de inserção com 9 placeholders ($1 a $9), um para cada campo
+            // Query SQL de inserção com 10 placeholders ($1 a $10), um para cada campo
             // "RETURNING id_livro" faz o banco retornar o ID gerado automaticamente após o INSERT
             const queryInsertLivro = `
                 INSERT INTO Livro (titulo, autor, editora, ano_publicacao, isbn, quant_total, quant_disponivel, valor_aquisicao, status_livro_emprestado)
@@ -345,9 +341,9 @@ class Livro {
             // Se o livro não existir ou já estiver inativo, retorna false
             return false;
         } catch (error) {
-            // Exibe o erro no console e retorna false em caso de falha
+            // Exibe o erro no console e lança a exceção novamente
             console.log(`Erro na consulta: ${error}`);
-            return false;
+            throw error;
         }
     }
 
@@ -364,8 +360,8 @@ class Livro {
 
             // Só prossegue com a atualização se o livro existir e estiver ativo
             if (livroConsulta && livroConsulta.status_livro) {
-                // Query SQL de atualização com 10 placeholders ($1 a $10)
-                // O $10 no WHERE garante que apenas o livro com o ID correto seja atualizado
+                // Query SQL de atualização com 11 placeholders ($1 a $11)
+                // O $11 no WHERE garante que apenas o livro com o ID correto seja atualizado
                 const queryAtualizarLivro = `UPDATE Livro SET 
                                 titulo = $1, 
                                 autor = $2,
@@ -405,9 +401,9 @@ class Livro {
             return false;
 
         } catch (error) {
-            // Exibe o erro no console e retorna false em caso de exceção
+            // Exibe o erro no console e lança adiante
             console.log(`Erro na consulta: ${error}`);
-            return false;
+            throw error;
         }
     }
 
