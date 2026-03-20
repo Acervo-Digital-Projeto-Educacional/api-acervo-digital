@@ -1,5 +1,6 @@
 // Importa o framework Express — é ele quem cria e gerencia o servidor web da aplicação
-import express from "express";
+// Adicionamos as tipagens do Request, Response e NextFunction do express para o tratamento de erros
+import express, { type Request, type Response, type NextFunction } from "express";
 // Importa o middleware CORS (Cross-Origin Resource Sharing)
 // O CORS controla quais origens (domínios) têm permissão para acessar a API
 // Sem ele, o navegador bloquearia requisições vindas de um domínio diferente do servidor
@@ -30,6 +31,20 @@ server.use(cors());
 // Registra o router com todos os endpoints da aplicação
 // A partir daqui, toda requisição que chegar ao servidor será direcionada para a rota correspondente
 server.use(router);
+
+// Middleware de fallback para rotas não encontradas (404 Not Found)
+// Se nenhuma rota acima (no router) atendeu à requisição, ela cai aqui.
+server.use((req: Request, res: Response, next: NextFunction) => {
+    res.status(404).json({ erro: "Rota não encontrada" });
+});
+
+// Middleware Tratador de Erros Global (Global Error Handler)
+// Captura exceções não tratadas que chegam até a raiz da aplicação e retorna erro 500 em JSON.
+server.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error(`[ERRO GLOBAL]: ${err.message}`);
+    // Retorna 500 para não vazar stacktrace de erros
+    res.status(500).json({ erro: "Erro interno do servidor" });
+});
 
 // Exporta o servidor para que possa ser importado e iniciado em outro arquivo (geralmente o index.ts ou server.ts)
 // O uso de exportação nomeada "export { server }" mantém consistência com a exportação do router
