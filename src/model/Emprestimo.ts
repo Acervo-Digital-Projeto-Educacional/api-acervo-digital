@@ -265,34 +265,45 @@ class Emprestimo {
     // Recebe um objeto Emprestimo completo e tenta inseri-lo no banco
     static async cadastrarEmprestimo(emprestimo: Emprestimo): Promise<boolean> {
         try {
-            // Query SQL de inserção — os "$1" a "$5" serão substituídos pelos valores reais
-            // "RETURNING id_emprestimo" faz o banco retornar o ID gerado automaticamente após o INSERT
+            // Verifica existência e disponibilidade do Livro
+            const queryCheckLivro = `SELECT quant_disponivel FROM Livro WHERE id_livro = $1 AND status_livro = TRUE;`;
+            const resultLivro = await database.query(queryCheckLivro, [emprestimo.id_livro]);
+            if (resultLivro.rowCount === 0) {
+                throw new Error('Livro não encontrado ou inativo.');
+            }
+            if (resultLivro.rows[0].quant_disponivel <= 0) {
+                throw new Error('Livro indisponível para empréstimo.');
+            }
+
+            // Verifica existência do Aluno
+            const queryCheckAluno = `SELECT id_aluno FROM Aluno WHERE id_aluno = $1 AND status_aluno = TRUE;`;
+            const resultAluno = await database.query(queryCheckAluno, [emprestimo.id_aluno]);
+            if (resultAluno.rowCount === 0) {
+                throw new Error('Aluno não encontrado ou inativo.');
+            }
+
+            // Query SQL de inserção
             const queryInsertEmprestimo = `
                 INSERT INTO Emprestimo (id_aluno, id_livro, data_emprestimo, data_devolucao, status_emprestimo)
                 VALUES ($1, $2, $3, $4, $5) RETURNING id_emprestimo;
             `;
 
-            // Organiza os valores do objeto emprestimo em um array, na mesma ordem dos placeholders ($1, $2...)
-            // Repare que aqui os atributos privados são acessados diretamente (sem getter) — isso funciona dentro da própria classe
             const valores = [emprestimo.id_aluno, emprestimo.id_livro, emprestimo.data_emprestimo, emprestimo.data_devolucao, emprestimo.status_emprestimo];
-            // Executa a query passando o array de valores e armazena o resultado
             const resultado = await database.query(queryInsertEmprestimo, valores);
 
-            // Se rowCount for diferente de 0, pelo menos uma linha foi inserida — o cadastro foi bem-sucedido
             if (resultado.rowCount != 0) {
-                // Exibe no console o ID do empréstimo recém-criado
+                // Atualiza a quantidade disponível do livro
+                const queryUpdateLivro = `UPDATE Livro SET quant_disponivel = quant_disponivel - 1 WHERE id_livro = $1;`;
+                await database.query(queryUpdateLivro, [emprestimo.id_livro]);
+
                 console.log(`Empréstimo cadastrado com sucesso! ID: ${resultado.rows[0].id_emprestimo}`);
-                // Retorna true para indicar sucesso
                 return true;
             }
 
-            // Se nenhuma linha foi afetada, o cadastro não funcionou — retorna false
             return false;
-
         } catch (error) {
-            // Exibe o erro no console e retorna false em caso de exceção
             console.error(`Erro ao cadastrar empréstimo: ${error}`);
-            return false;
+            throw error;
         }
     }
 
@@ -309,32 +320,42 @@ class Emprestimo {
         status_emprestimo: string // Novo status do empréstimo
     ): Promise<boolean> {
         try {
-            // Query SQL de atualização — o WHERE garante que apenas o empréstimo com o ID correto seja alterado
-            // "RETURNING id_emprestimo" retorna o ID do registro atualizado, confirmando que ele existe
+            // Verifica status anterior para controlar o estoque do livro
+            const queryCheckEmprestimo = `SELECT id_livro, status_emprestimo FROM Emprestimo WHERE id_emprestimo = $1;`;
+            const checkResult = await database.query(queryCheckEmprestimo, [id_emprestimo]);
+            
+            if (checkResult.rowCount === 0) {
+                return false;
+            }
+            
+            const statusAnterior = checkResult.rows[0].status_emprestimo;
+
             const queryUpdateEmprestimo = `UPDATE Emprestimo
             SET id_aluno = $1, id_livro = $2, data_emprestimo = $3, data_devolucao = $4, status_emprestimo = $5
             WHERE id_emprestimo = $6
             RETURNING id_emprestimo;`;
 
-            // Organiza os valores em um array na mesma ordem dos placeholders da query
-            // Repare que id_emprestimo vai por último ($6) pois é usado no WHERE, não no SET
             const valores = [id_aluno, id_livro, data_emprestimo, data_devolucao, status_emprestimo, id_emprestimo];
-            // Executa a query de atualização e armazena o resultado
             const resultado = await database.query(queryUpdateEmprestimo, valores);
 
-            // Se rowCount for 0, nenhuma linha foi alterada — significa que o ID não existe no banco
             if (resultado.rowCount === 0) {
-                // Lança um erro manualmente para ser capturado pelo bloco catch abaixo
-                throw new Error('Empréstimo não encontrado.');
+                return false;
             }
 
-            // Se chegou até aqui, a atualização foi bem-sucedida — retorna true
+            // Controla o estoque ao mudar o status da devolução
+            if (statusAnterior !== 'Devolvido' && status_emprestimo === 'Devolvido') {
+                const queryUpdateLivro = `UPDATE Livro SET quant_disponivel = quant_disponivel + 1 WHERE id_livro = $1;`;
+                await database.query(queryUpdateLivro, [id_livro]);
+            } else if (statusAnterior === 'Devolvido' && status_emprestimo !== 'Devolvido') {
+                const queryUpdateLivro = `UPDATE Livro SET quant_disponivel = quant_disponivel - 1 WHERE id_livro = $1;`;
+                await database.query(queryUpdateLivro, [id_livro]);
+            }
+
             return true;
 
         } catch (error) {
-            // Captura tanto erros do banco quanto o erro lançado manualmente acima
             console.error(`Erro ao atualizar empréstimo: ${error}`);
-            return false;
+            throw error;
         }
     }
 
@@ -364,13 +385,13 @@ class Emprestimo {
                 return true;
             }
 
-            // Se rowCount for 0, nenhum registro foi encontrado com esse ID — retorna false
+            // Se nenhum registro foi encontrado
             return false;
 
         } catch (error) {
-            // Exibe o erro no console e retorna false em caso de falha
-            console.log(`Erro ao remover empréstimo: ${error}`);
-            return false;
+            // Exibe o erro no console e repassa a exceção
+            console.error(`Erro ao remover empréstimo: ${error}`);
+            throw error;
         }
     }
 }
