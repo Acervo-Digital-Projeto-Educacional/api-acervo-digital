@@ -44,9 +44,19 @@ class AlunoController extends Aluno {
             // Lê o parâmetro "id" da URL (req.params.id) e converte de string para número inteiro
             // O "as string" garante ao TypeScript que o valor existe e é uma string
             const idAluno = parseInt(req.params.id as string);
+            
+            if (isNaN(idAluno)) {
+                return res.status(400).json({ mensagem: "ID inválido." });
+            }
 
             // Chama o método do model passando o ID para buscar o aluno específico no banco
             const aluno = await Aluno.listarAluno(idAluno);
+
+            // Verifica se o aluno foi encontrado
+            if (!aluno || (Array.isArray(aluno) && aluno.length === 0)) {
+                return res.status(404).json({ mensagem: "Aluno não encontrado." });
+            }
+
             // Retorna o objeto do aluno em JSON com status HTTP 200 (OK)
             res.status(200).json(aluno);
         } catch (error) {
@@ -112,14 +122,17 @@ class AlunoController extends Aluno {
             // Lê o parâmetro "id" da URL e converte para número inteiro
             // Exemplo de URL: DELETE /aluno/3  →  idAluno = 3
             const idAluno = parseInt(req.params.id as string);
+            
+            if (isNaN(idAluno)) {
+                return res.status(400).json({ mensagem: "ID inválido." });
+            }
 
             // Chama o método do model para remover (logicamente) o aluno com o ID informado
             const result = await Aluno.removerAluno(idAluno);
 
             if (result) {
-                // Retorna mensagem de sucesso com status HTTP 201 se a remoção funcionou
-                // ⚠️ Observação: o ideal aqui seria status 200 (OK), pois 201 é para criação de recursos
-                return res.status(201).json({ mensagem: 'Aluno removido com sucesso.' });
+                // Retorna mensagem de sucesso com status HTTP 200 (OK)
+                return res.status(200).json({ mensagem: 'Aluno removido com sucesso.' });
             } else {
                 // Retorna status HTTP 404 (Not Found) se o aluno não foi encontrado ou já estava inativo
                 return res.status(404).json({ mensagem: 'Aluno não encontrado para exclusão.' });
@@ -159,7 +172,11 @@ class AlunoController extends Aluno {
             // Define o ID do aluno no objeto criado, lendo o parâmetro "id" da URL
             // Isso é necessário para que o model saiba QUAL aluno deve ser atualizado no banco
             // Exemplo de URL: PUT /aluno/7  →  setIdAluno(7)
-            aluno.setIdAluno(parseInt(req.params.id as string));
+            const idAluno = parseInt(req.params.id as string);
+            if (isNaN(idAluno)) {
+                return res.status(400).json({ mensagem: "ID inválido." });
+            }
+            aluno.setIdAluno(idAluno);
 
             // Chama o método do model para atualizar os dados do aluno no banco de dados
             const result = await Aluno.atualizarAluno(aluno);
