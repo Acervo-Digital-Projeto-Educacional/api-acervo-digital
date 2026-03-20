@@ -330,13 +330,13 @@ class Aluno {
                 return true;
             }
 
-            // Se o aluno não existir ou já estiver inativo, retorna false
+            // Se o aluno não existir ou já estiver inativo, retorna false para que o controller retorne 404
             return false;
 
         } catch (error) {
-            // Exibe o erro no console e retorna false em caso de falha
+            // Exibe o erro no console e repassa para o controller
             console.log(`Erro na consulta: ${error}`);
-            return false;
+            throw error;
         }
     }
 
@@ -356,12 +356,12 @@ class Aluno {
                 // Query SQL de atualização — cada campo recebe um placeholder "$n"
                 // O WHERE garante que só o aluno com o ID correto seja atualizado
                 const queryAtualizarAluno = `UPDATE Aluno SET 
-                                                    nome = '$1', 
-                                                    sobrenome = '$2',
-                                                    data_nascimento = '$3', 
-                                                    endereco = '$4',
-                                                    celular = '$5', 
-                                                    email = '$6'                                            
+                                                    nome = $1, 
+                                                    sobrenome = $2,
+                                                    data_nascimento = $3, 
+                                                    endereco = $4,
+                                                    celular = $5, 
+                                                    email = $6                                            
                                                 WHERE id_aluno = $7`;
 
                 // Executa a query de atualização com os valores do objeto aluno recebido
@@ -381,12 +381,12 @@ class Aluno {
                 }
             }
 
-            // Se o aluno não existe, está inativo, ou o UPDATE não afetou nenhuma linha, retorna false
+            // Se o aluno não existe, está inativo, ou o UPDATE não afetou nenhuma linha
             return false;
         } catch (error) {
-            // Exibe o erro no console e retorna false em caso de exceção
+            // Exibe o erro no console e repassa a exceção
             console.log(`Erro na consulta: ${error}`);
-            return false;
+            throw error;
         }
     }
 
