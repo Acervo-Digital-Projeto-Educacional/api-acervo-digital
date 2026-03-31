@@ -175,3 +175,19 @@ VALUES
 (13, 17, '2024-09-11', '2024-09-25', 'Atrasado'),
 (15, 16, '2024-09-11', '2024-09-25', 'Em andamento'),
 (17, 14, '2024-09-11', '2024-09-25', 'Concluído');
+
+-- Usuários
+CREATE TABLE IF NOT EXISTS usuario (
+    id_usuario SERIAL,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    senha VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL
+);
+
+INSERT INTO usuario (nome, email, senha, role) VALUES
+('Administrador', 'admin@adigital.com.br', 'admin', 'admin'),
+('Jose Mateus', 'jose.mateus@adigital.com.br', 'jose', 'admin'),
+('Renato Oliveira', 'renato.o@adigital.com.br', 'Renato', 'admin'),
+('John Bon Jovi', 'bonjovi@adigital.com.br', '123', 'user'),
+('Catarina Luz', 'catarina@adigital.com.br', 'Vermelho', 'user');

@@ -1,4 +1,5 @@
 GET http://localhost:3333/api/alunos
+x-access-token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Mywibm9tZSI6IlJlbmF0byBPbGl2ZWlyYSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3NDk2NTk0MywiZXhwIjoxNzc0OTY5NTQzfQ.YyP3DxR2wmI4nM1H8GbDkKn6J0uWPNNyaHFNmUcfmrQ
 
 ###
 GET http://localhost:3333/api/alunos/3
