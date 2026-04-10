@@ -32,10 +32,21 @@ export class Auth {
      * @returns Token de autenticação caso o usuário seja válido, mensagem de login não autorizado caso negativo
      */
     static async validacaoUsuario(req: Request, res: Response): Promise<any> {
+        // Verifica se o corpo da requisição existe
+        if (!req.body) {
+            return res.status(400).json({ auth: false, message: "Corpo da requisição não encontrado." });
+        }
+
         // recupera informações do corpo da requisição
         const { email, senha } = req.body;
 
+        // Verifica se email e senha foram informados
+        if (!email || !senha) {
+            return res.status(400).json({ auth: false, message: "Email e senha são obrigatórios." });
+        }
+
         // query para validar email e senha informados pelo cliente
+        // selecionamos também o email para usar como username no token
         const querySelectUser = `SELECT id_usuario, nome, email, senha, role FROM usuario WHERE email=$1 AND senha=$2;`;
 
         try {
@@ -45,19 +56,18 @@ export class Auth {
             // verifica se a quantidade de linhas retornada foi diferente de 0
             // se foi, quer dizer que o email e senha fornecidos são iguais aos do banco de dados
             if (queryResult.rowCount != 0) {
-                // cria um objeto chamado professor com o id, nome e email. Essas informações serão devolvidas ao cliente
+                // cria um objeto usuario com os dados do banco
                 const usuario = {
                     id_usuario: queryResult.rows[0].id_usuario,
                     nome: queryResult.rows[0].nome,
-                    username: queryResult.rows[0].username,
+                    username: queryResult.rows[0].email, // Usando o email como username
                     role: queryResult.rows[0].role
                 }
 
-                // Gera o token do usuário, passando como parâmetro as informações do objeto professor
+                // Gera o token do usuário
                 const tokenUsuario = Auth.generateToken(parseInt(usuario.id_usuario), usuario.nome, usuario.username, usuario.role);
 
-                // retorna ao cliente o status de autenticação (verdadeiro), o token e o objeto professor
-                // tudo isso encapsulado em um JSON
+                // retorna ao cliente o status de autenticação (verdadeiro), o token e o objeto usuario
                 return res.status(200).json({ auth: true, token: tokenUsuario, usuario: usuario });
             } else {
                 // caso a autenticação não tenha sido bem sucedida, é retornado ao cliente o statu de autenticação (falso), um token nulo e a mensagem de falha
