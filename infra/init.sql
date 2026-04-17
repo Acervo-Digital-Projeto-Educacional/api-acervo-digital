@@ -1,4 +1,4 @@
-/*
+
 -- Drop da trigger
 DROP TRIGGER IF EXISTS trg_gerar_ra ON Aluno;
 
@@ -16,7 +16,6 @@ DROP TABLE IF EXISTS Aluno;
 
 -- Drop da sequência
 DROP SEQUENCE IF EXISTS seq_ra;
-*/
 
 -- Habilitar a extensão para geração de UUIDs
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -83,6 +82,22 @@ ALTER TABLE IF EXISTS Livro ADD COLUMN IF NOT EXISTS status_livro BOOLEAN DEFAUL
 
 -- Adicionando coluna capa na tabela Livro
 ALTER TABLE IF EXISTS Livro ADD COLUMN IF NOT EXISTS capa VARCHAR(255) DEFAULT '';
+
+-- CREATE USUARIOS
+CREATE TABLE IF NOT EXISTS Usuario (
+    id_usuario SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    senha VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL
+);
+
+-- INSERT USUARIOS
+INSERT INTO Usuario (nome, email, senha, role) VALUES
+('Admin User', 'admin@adigital.com.br', 'admin', 'admin'),
+('João Silva', 'joao.silva@adigital.com.br', 'senha123', 'user'),
+('Maria Oliveira', 'maria.oliveira@adigital.com.br', 'senha456', 'user'),
+('Carlos Santos', 'carlos.santos@adigital.com.br', 'senha789', 'librarian');
 
 -- ALUNO
 INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular) 
@@ -175,3 +190,4 @@ VALUES
 (13, 17, '2024-09-11', '2024-09-25', 'Atrasado'),
 (15, 16, '2024-09-11', '2024-09-25', 'Em andamento'),
 (17, 14, '2024-09-11', '2024-09-25', 'Concluído');
+

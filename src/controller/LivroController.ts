@@ -31,9 +31,19 @@ class LivroController extends Livro {
         try {
             // Lê o parâmetro "id" da URL e converte de string para número inteiro
             const idLivro = parseInt(req.params.id as string);
+            
+            if (isNaN(idLivro)) {
+                return res.status(400).json({ mensagem: "ID inválido." });
+            }
 
             // Chama o método do model passando o ID para buscar o livro específico no banco
             const livro = await Livro.listarLivro(idLivro);
+
+            // Verifica se o livro foi encontrado
+            if (!livro || (Array.isArray(livro) && livro.length === 0)) {
+                return res.status(404).json({ mensagem: "Livro não encontrado." });
+            }
+
             // Retorna o objeto do livro em JSON com status HTTP 200 (OK)
             return res.status(200).json(livro);
         } catch (error) {
@@ -52,6 +62,11 @@ class LivroController extends Livro {
             // O front-end envia os dados do novo livro no corpo da requisição em formato JSON
             const dadosRecebidos: LivroDTO = req.body;
 
+            // Converte valor_aquisicao para número, caso venha como string
+            const valorAquisicao = typeof dadosRecebidos.valor_aquisicao === 'string' 
+                ? parseFloat(dadosRecebidos.valor_aquisicao) 
+                : dadosRecebidos.valor_aquisicao ?? 0;
+
             // Cria um novo objeto Livro com os dados recebidos do front-end
             const novoLivro = new Livro(
                 dadosRecebidos.titulo,              // Título do livro
@@ -63,9 +78,7 @@ class LivroController extends Livro {
                 dadosRecebidos.isbn,                // ISBN do livro
                 dadosRecebidos.quant_total,         // Quantidade total de exemplares
                 dadosRecebidos.quant_disponivel,    // Quantidade disponível para empréstimo
-                dadosRecebidos.quant_aquisicao,     // Quantidade adquirida
-                // valor_aquisicao é opcional no DTO — se não informado, usa 0 como padrão
-                dadosRecebidos.valor_aquisicao ?? 0
+                valorAquisicao                      // Valor de aquisição (agora garantido como número)
             );
 
             // Chama o método do model para persistir o novo livro no banco de dados
@@ -73,9 +86,8 @@ class LivroController extends Livro {
 
             // Verifica o retorno do model: true = cadastro bem-sucedido, false = falha
             if (result) {
-                // ⚠️ Observação: usa status HTTP 200 (OK) ao invés de 201 (Created)
-                // O correto para criação de recursos seria 201, como fazem os outros controllers
-                return res.status(200).json({ mensagem: 'Livro cadastrado com sucesso.' });
+                // Retorna mensagem de sucesso com status HTTP 201 (Created)
+                return res.status(201).json({ mensagem: 'Livro cadastrado com sucesso.' });
             } else {
                 // Retorna mensagem de erro com status HTTP 500 se o banco não conseguiu salvar
                 return res.status(500).json({ mensagem: 'Não foi possível cadastrar o livro no banco de dados.' });
@@ -94,6 +106,10 @@ class LivroController extends Livro {
             // Lê o parâmetro "id" da URL e converte para número inteiro
             // Exemplo de URL: DELETE /livro/5  →  idLivro = 5
             const idLivro = parseInt(req.params.id as string);
+            
+            if (isNaN(idLivro)) {
+                return res.status(400).json({ mensagem: "ID inválido." });
+            }
 
             // Chama o método do model para remover (logicamente) o livro com o ID informado
             // O model também desativa todos os empréstimos relacionados antes de desativar o livro
@@ -101,8 +117,8 @@ class LivroController extends Livro {
 
             // Verifica o retorno do model: true = remoção bem-sucedida, false = falha
             if (result) {
-                // ⚠️ Observação: usa status HTTP 201 (Created) para uma remoção — o correto seria 200 (OK)
-                return res.status(201).json({ mensagem: 'Livro removido com sucesso.' });
+                // Retorna mensagem de sucesso com status HTTP 200 (OK)
+                return res.status(200).json({ mensagem: 'Livro removido com sucesso.' });
             } else {
                 // Retorna status HTTP 404 (Not Found) se o livro não foi encontrado ou já estava inativo
                 return res.status(404).json({ mensagem: 'Livro não encontrado para exclusão.' });
@@ -120,10 +136,19 @@ class LivroController extends Livro {
             // Lê o parâmetro "id" da URL e converte para número inteiro
             // Exemplo de URL: PUT /livro/7  →  idLivro = 7
             const idLivro = parseInt(req.params.id as string);
+            
+            if (isNaN(idLivro)) {
+                return res.status(400).json({ mensagem: "ID inválido." });
+            }
 
             // Lê o corpo da requisição e tipifica como LivroDTO
             // O front-end envia os dados atualizados no corpo da requisição
             const dadosRecebidos: LivroDTO = req.body;
+
+            // Converte valor_aquisicao para número
+            const valorAquisicao = typeof dadosRecebidos.valor_aquisicao === 'string' 
+                ? parseFloat(dadosRecebidos.valor_aquisicao) 
+                : dadosRecebidos.valor_aquisicao ?? 0;
 
             // Cria um novo objeto Livro com os dados atualizados recebidos do front-end
             // Mesma lógica do método cadastrar — usa "??" para garantir valores padrão nos campos opcionais
@@ -136,8 +161,7 @@ class LivroController extends Livro {
                 dadosRecebidos.isbn,
                 dadosRecebidos.quant_total,
                 dadosRecebidos.quant_disponivel,
-                dadosRecebidos.quant_aquisicao,
-                dadosRecebidos.valor_aquisicao ?? 0
+                valorAquisicao
             );
 
             // Define o ID do livro no objeto criado, lendo o parâmetro capturado da URL
