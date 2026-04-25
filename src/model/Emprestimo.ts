@@ -173,6 +173,44 @@ class Emprestimo {
     }
 
     /**
+     * Busca e retorna apenas os empréstimos ativos de um aluno específico.
+     * Utilizado quando o usuário autenticado tem role 'user':
+     * nesse caso, ele só pode visualizar os próprios empréstimos.
+     *
+     * Compartilha a mesma estrutura de JOIN do listarEmprestimos,
+     * mas adiciona o filtro AND e.id_aluno = $1 no WHERE.
+     *
+     * @param id_aluno ID do aluno cujos empréstimos serão retornados.
+     * @returns Promise com array de EmprestimoDTO com os empréstimos do aluno.
+     *          Retorna array vazio se não houver empréstimos ativos para o aluno.
+     * @throws Error se ocorrer falha na consulta ao banco de dados.
+     */
+    static async listarEmprestimosPorAluno(id_aluno: number): Promise<EmprestimoDTO[]> {
+        try {
+            // Mesma query de listarEmprestimos, mas com filtro adicional por id_aluno
+            // O uso de prepared statement ($1) protege contra SQL Injection
+            const querySelectEmprestimo = `
+                SELECT e.id_emprestimo, e.id_aluno, e.id_livro,
+                       e.data_emprestimo, e.data_devolucao, e.status_emprestimo, e.status_emprestimo_registro,
+                       a.ra, a.nome, a.sobrenome, a.celular, a.email,
+                       l.titulo, l.autor, l.editora, l.isbn
+                FROM Emprestimo e
+                JOIN Aluno a ON e.id_aluno = a.id_aluno
+                JOIN Livro l ON e.id_livro = l.id_livro
+                WHERE e.status_emprestimo_registro = TRUE
+                  AND e.id_aluno = $1;
+            `;
+
+            const respostaBD = await database.query(querySelectEmprestimo, [id_aluno]);
+            return respostaBD.rows.map(Emprestimo.toDTO);
+
+        } catch (error) {
+            console.error(`[EmprestimoModel] Erro ao listar empréstimos do aluno (id: ${id_aluno}):`, error);
+            throw error;
+        }
+    }
+
+    /**
      * Busca e retorna os dados de um empréstimo específico pelo seu ID.
      * Utiliza JOIN com as tabelas Aluno e Livro para retornar os dados completos em uma única consulta.
      *

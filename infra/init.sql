@@ -185,6 +185,8 @@ CREATE TABLE IF NOT EXISTS usuario (
     role VARCHAR(50) NOT NULL
 );
 
+ALTER TABLE usuario ADD COLUMN id_aluno INT REFERENCES aluno(id_aluno);
+
 INSERT INTO usuario (nome, email, senha, role) VALUES
 ('Administrador', 'admin@adigital.com.br', 'admin', 'admin'),
 ('Jose Mateus', 'jose.mateus@adigital.com.br', 'jose', 'admin'),

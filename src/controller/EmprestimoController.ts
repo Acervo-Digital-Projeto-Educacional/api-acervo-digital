@@ -27,23 +27,25 @@ class EmprestimoController extends Emprestimo {
      */
     static async todos(req: Request, res: Response) {
         try {
-            // Chama o método do model que busca todos os empréstimos ativos no banco de dados
-            // O resultado já vem com os dados do aluno e do livro embutidos (graças ao JOIN da query)
-            const listaDeEmprestimos = await Emprestimo.listarEmprestimos();
+            // Lê o id do aluno vinculado ao usuário logado (null = admin sem filtro)
+            const idAluno: number | null = res.locals.idAluno;
+
+            // Se idAluno for null, o usuário é admin — busca todos os empréstimos ativos
+            // Se idAluno tiver um valor, é um 'user' — busca apenas os próprios empréstimos
+            const listaDeEmprestimos = idAluno !== null
+                ? await Emprestimo.listarEmprestimosPorAluno(idAluno)  // filtrado pelo aluno
+                : await Emprestimo.listarEmprestimos();                 // todos (admin)
 
             // Se o array estiver vazio, não há empréstimos cadastrados — retorna 204 (No Content)
-            // 204 indica que a requisição foi bem-sucedida, mas não há conteúdo para retornar
-            // É diferente de um erro — a consulta funcionou, simplesmente não há dados
             if (listaDeEmprestimos.length === 0) {
                 res.status(204).send();
-                return; // "return" encerra o método para não executar o código abaixo
+                return;
             }
 
             // Retorna a lista de empréstimos em formato JSON com status 200 (OK)
             res.status(200).json(listaDeEmprestimos);
 
         } catch (error) {
-            // Se ocorrer qualquer erro inesperado, exibe no console e retorna status 500
             console.error(`[EmprestimoController] Erro ao listar empréstimos:`, error);
             res.status(500).json({ mensagem: "Erro interno ao recuperar a lista de empréstimos." });
         }
@@ -60,28 +62,31 @@ class EmprestimoController extends Emprestimo {
     static async emprestimo(req: Request, res: Response) {
         try {
             // Lê o parâmetro "id" da URL e converte de string para número inteiro
-            // "as string" garante ao TypeScript que o valor existe e é uma string antes do parseInt
             const idEmprestimo = parseInt(req.params.id as string);
 
-            // parseInt retorna NaN se o valor não for um número válido (ex: /api/emprestimos/abc)
-            // idEmprestimo <= 0 rejeita valores como 0 ou negativos que não fazem sentido como ID
             if (isNaN(idEmprestimo) || idEmprestimo <= 0) {
                 res.status(400).json({ mensagem: "ID inválido. Informe um número inteiro positivo." });
                 return;
             }
 
-            // Chama o método do model passando o ID para buscar o empréstimo específico no banco
+            // Chama o método do model para buscar o empréstimo específico
             const emprestimo = await Emprestimo.listarEmprestimo(idEmprestimo);
 
-            // Se chegou aqui, o empréstimo foi encontrado — retorna os dados com status 200 (OK)
+            // Controle de acesso: usuários com role 'user' só podem ver os próprios empréstimos
+            // Verifica se o empréstimo buscado pertence ao aluno logado
+            const idAlunoDaSessao: number | null = res.locals.idAluno;
+            if (idAlunoDaSessao !== null && emprestimo.aluno.id_aluno !== idAlunoDaSessao) {
+                return res.status(403).json({
+                    mensagem: "Acesso negado. Você só pode visualizar seus próprios empréstimos."
+                });
+            }
+
+            // Se chegou aqui, o empréstimo foi encontrado e o acesso é válido
             res.status(200).json(emprestimo);
 
         } catch (error: any) {
-            // "error: any" permite inspecionar a mensagem do erro para diferenciar os casos
             console.error(`[EmprestimoController] Erro ao buscar empréstimo (id: ${req.params.id}):`, error);
 
-            // O model lança um erro com "não encontrado" quando o ID não existe no banco
-            // Aqui diferenciamos esse caso (404) de um erro inesperado de banco (500)
             if (error.message?.includes("não encontrado")) {
                 res.status(404).json({ mensagem: error.message });
                 return;

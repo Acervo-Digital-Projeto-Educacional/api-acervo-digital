@@ -3,6 +3,7 @@
 // O "type" antes de Request e Response indica que são importações apenas de tipo (não geram código JS)
 import { Router, type Request, type Response } from "express";
 import { Auth } from "./middleware/Auth.js";
+import { Authorize } from "./middleware/Authorize.js";
 
 // Importa os controllers — cada um é responsável por tratar as requisições de sua entidade
 // É o controller quem recebe os dados da requisição, chama o model e devolve a resposta ao cliente
@@ -25,72 +26,64 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // ==================== ENDPOINTS DE LOGIN ====================
+// Rota pública — não exige autenticação
 router.post('/api/login', Auth.validacaoUsuario);
 
 // ==================== ENDPOINTS DE ALUNO ====================
-// Padrão REST: cada operação usa um método HTTP diferente no mesmo recurso (/api/alunos)
-// GET    → leitura       POST → criação
-// PUT    → atualização   DELETE → remoção
+// Convenção de acesso:
+//   verifyToken  → autentica (quem é você?)
+//   requireSelf  → leitura: admin livre; user filtrado pelo próprio id_aluno
+//   requireAdmin → escrita: somente admin pode criar, editar ou remover
 
-// Lista todos os alunos ativos — o controller chama o model e retorna o array em JSON
-router.get('/api/alunos', Auth.verifyToken, AlunoController.todos);
+// Lista alunos: admin vê todos; user vê apenas si mesmo
+router.get('/api/alunos',        Auth.verifyToken, Authorize.requireSelf,  AlunoController.todos);
 
-// Busca um aluno específico pelo ID informado na URL
-// ":id" é um parâmetro dinâmico — ex: GET /api/alunos/3 busca o aluno de ID 3
-// O valor é lido no controller via req.params.id
-router.get('/api/alunos/:id', Auth.verifyToken, AlunoController.aluno);
+// Busca aluno por ID: admin qualquer; user somente o próprio (validação extra no controller)
+router.get('/api/alunos/:id',    Auth.verifyToken, Authorize.requireSelf,  AlunoController.aluno);
 
-// Cadastra um novo aluno — os dados chegam no corpo (body) da requisição em formato JSON
-// O body é lido no controller via req.body
-router.post('/api/alunos', Auth.verifyToken, AlunoController.cadastrar);
+// Cadastra aluno: somente admin — cria também o usuário vinculado automaticamente
+router.post('/api/alunos',       Auth.verifyToken, Authorize.requireAdmin, AlunoController.cadastrar);
 
-// Remove logicamente o aluno com o ID informado — não apaga do banco, apenas desativa (status = FALSE)
-// Também desativa todos os empréstimos relacionados ao aluno
-router.delete('/api/alunos/:id', Auth.verifyToken, AlunoController.remover);
+// Remove aluno: somente admin
+router.delete('/api/alunos/:id', Auth.verifyToken, Authorize.requireAdmin, AlunoController.remover);
 
-// Atualiza os dados do aluno com o ID informado
-// O ID vem pela URL (req.params.id) e os novos dados vêm no body (req.body)
-router.put('/api/alunos/:id', Auth.verifyToken, AlunoController.atualizar);
+// Atualiza aluno: somente admin
+router.put('/api/alunos/:id',    Auth.verifyToken, Authorize.requireAdmin, AlunoController.atualizar);
 
 // ==================== ENDPOINTS DE LIVRO ====================
+// Livros são recursos de consulta pública (qualquer usuário autenticado pode listar/ver)
+// Somente admin pode criar, editar ou remover livros do acervo
 
-// Lista todos os livros ativos
-router.get('/api/livros', Auth.verifyToken, LivroController.todos);
+// Lista todos os livros: qualquer usuário autenticado
+router.get('/api/livros',        Auth.verifyToken, LivroController.todos);
 
-// Busca um livro específico pelo ID informado na URL
-// Ex: GET /api/livros/5 retorna os dados do livro de ID 5
-router.get('/api/livros/:id', Auth.verifyToken, LivroController.livro);
+// Busca livro por ID: qualquer usuário autenticado
+router.get('/api/livros/:id',    Auth.verifyToken, LivroController.livro);
 
-// Cadastra um novo livro — os dados chegam no body da requisição
-router.post('/api/livros', Auth.verifyToken, LivroController.cadastrar);
+// Cadastra livro: somente admin
+router.post('/api/livros',       Auth.verifyToken, Authorize.requireAdmin, LivroController.cadastrar);
 
-// Remove logicamente o livro com o ID informado
-// Antes de desativar o livro, o model desativa todos os empréstimos relacionados a ele
-router.delete('/api/livros/:id', Auth.verifyToken, LivroController.remover);
+// Remove livro: somente admin
+router.delete('/api/livros/:id', Auth.verifyToken, Authorize.requireAdmin, LivroController.remover);
 
-// Atualiza os dados do livro com o ID informado
-router.put('/api/livros/:id', Auth.verifyToken, LivroController.atualizar);
+// Atualiza livro: somente admin
+router.put('/api/livros/:id',    Auth.verifyToken, Authorize.requireAdmin, LivroController.atualizar);
 
 // ==================== ENDPOINTS DE EMPRÉSTIMO ====================
+// Lista empréstimos: admin vê todos; user vê apenas os seus
+router.get('/api/emprestimos',        Auth.verifyToken, Authorize.requireSelf,  EmprestimoController.todos);
 
-// Lista todos os empréstimos ativos
-// Os dados já vêm com as informações completas do aluno e do livro embutidas
-// Isso é possível porque a query do model usa JOIN entre as tabelas Emprestimo, Aluno e Livro
-router.get('/api/emprestimos', Auth.verifyToken, EmprestimoController.todos);
+// Busca empréstimo por ID: admin qualquer; user somente os seus (validação extra no controller)
+router.get('/api/emprestimos/:id',    Auth.verifyToken, Authorize.requireSelf,  EmprestimoController.emprestimo);
 
-// Busca um empréstimo específico pelo ID informado na URL
-// Ex: GET /api/emprestimos/2 retorna o empréstimo de ID 2 com os dados do aluno e do livro
-router.get('/api/emprestimos/:id', Auth.verifyToken, EmprestimoController.emprestimo);
+// Cadastra empréstimo: somente admin
+router.post('/api/emprestimos',       Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.cadastrar);
 
-// Cadastra um novo empréstimo — os dados chegam no body com os objetos "aluno" e "livro" aninhados
-// Ex: { aluno: { id_aluno: 1 }, livro: { id_livro: 3 }, data_emprestimo: "2024-01-15" }
-router.post('/api/emprestimos', Auth.verifyToken, EmprestimoController.cadastrar);
+// Remove empréstimo: somente admin
+router.delete('/api/emprestimos/:id', Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.remover);
 
-// Remove logicamente o empréstimo com o ID informado (status_emprestimo_registro = FALSE)
-router.delete('/api/emprestimos/:id', Auth.verifyToken, EmprestimoController.remover);
-
-// Atualiza os dados do empréstimo com o ID informado
-router.put('/api/emprestimos/:id', Auth.verifyToken, EmprestimoController.atualizar);
+// Atualiza empréstimo: somente admin
+router.put('/api/emprestimos/:id',    Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.atualizar);
 
 // Exporta o router para ser registrado no server.ts via server.use(router)
 // Exportação nomeada { router } permite importar com nome explícito: import { router } from "./routes.js"

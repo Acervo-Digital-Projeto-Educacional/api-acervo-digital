@@ -166,26 +166,35 @@ class Aluno {
     }
 
     /**
-     * Cadastra um novo aluno no banco de dados.
-     * Nome, sobrenome e endereço são salvos em maiúsculas; e-mail em minúsculas.
+     * Cadastra um novo aluno no banco de dados e cria automaticamente um usuário
+     * vinculado a ele (role = 'user'), utilizando o mesmo e-mail do aluno.
+     * A senha padrão gerada é composta pelo prefixo "Aluno@" + RA do aluno (ex: "Aluno@AAA0001").
+     * Toda a operação é encapsulada em uma transação para garantir atomicidade:
+     * se a criação do usuário falhar, o aluno também é revertido.
      * 
      * @param aluno Objeto Aluno contendo os dados a serem cadastrados.
-     * @returns Promise com true se o cadastro foi realizado com sucesso.
-     * @throws Error se o INSERT não retornar o ID gerado ou ocorrer falha no banco.
+     * @returns Promise com objeto contendo sucesso e a senha gerada para o novo usuário.
+     * @throws Error se o INSERT não retornar o ID/RA gerado ou ocorrer falha no banco.
      */
-    static async cadastrarAluno(aluno: Aluno): Promise<boolean> {
+    static async cadastrarAluno(aluno: Aluno): Promise<{ sucesso: boolean; senhaGerada: string }> {
+        // Obtém uma conexão dedicada do pool para usar transação
+        const client = await database.connect();
+
         try {
-            // "RETURNING id_aluno" faz o banco retornar o ID gerado automaticamente após o INSERT
-            // Isso confirma que o registro foi criado e nos dá o ID para exibir no log
+            // Inicia a transação — garante que aluno e usuário sejam criados juntos ou nenhum
+            await client.query('BEGIN');
+
+            // "RETURNING id_aluno, ra" retorna tanto o ID quanto o RA gerado pela trigger do banco
+            // O RA é usado para compor a senha padrão do usuário
             const queryInsertAluno = `
                 INSERT INTO Aluno (nome, sobrenome, data_nascimento, endereco, email, celular)
                 VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING id_aluno;
+                RETURNING id_aluno, ra;
             `;
 
             // Os valores são passados separadamente — o banco substitui $1, $2... na ordem do array
             // .toUpperCase() e .toLowerCase() padronizam os dados antes de salvar no banco
-            const valores = [
+            const valoresAluno = [
                 aluno.getNome().toUpperCase(),
                 aluno.getSobrenome().toUpperCase(),
                 aluno.getDataNascimento(),
@@ -194,18 +203,56 @@ class Aluno {
                 aluno.getCelular()
             ];
 
-            const result = await database.query(queryInsertAluno, valores);
+            const resultAluno = await client.query(queryInsertAluno, valoresAluno);
 
             // Se o RETURNING não retornou nenhuma linha, o INSERT falhou silenciosamente
-            if (result.rows.length === 0) {
-                throw new Error("INSERT não retornou ID — cadastro pode ter falhado silenciosamente.");
+            if (resultAluno.rows.length === 0) {
+                throw new Error('INSERT de aluno não retornou dados — cadastro pode ter falhado silenciosamente.');
             }
 
-            console.info(`[AlunoModel] Aluno cadastrado com sucesso. ID: ${result.rows[0].id_aluno}`);
-            return true;
+            const { id_aluno, ra } = resultAluno.rows[0];
+
+            // Senha padrão: "Aluno@" + RA gerado pelo banco (ex: "Aluno@AAA0001")
+            // Única por aluno, fácil de comunicar e de lembrar no primeiro acesso
+            const senhaGerada = `Aluno@${ra}`;
+
+            // Nome completo do aluno para o registro de usuário
+            const nomeCompleto = `${aluno.getNome()} ${aluno.getSobrenome()}`;
+
+            // Insere o usuário vinculado ao aluno recém-criado
+            const queryInsertUsuario = `
+                INSERT INTO usuario (nome, email, senha, role, id_aluno)
+                VALUES ($1, $2, $3, 'user', $4)
+                RETURNING id_usuario;
+            `;
+
+            const valoresUsuario = [
+                nomeCompleto,
+                aluno.getEmail().toLowerCase(),
+                senhaGerada,
+                id_aluno
+            ];
+
+            const resultUsuario = await client.query(queryInsertUsuario, valoresUsuario);
+
+            if (resultUsuario.rows.length === 0) {
+                throw new Error('INSERT de usuário não retornou dados — criação do acesso pode ter falhado.');
+            }
+
+            // Confirma as duas operações juntas no banco
+            await client.query('COMMIT');
+
+            console.info(`[AlunoModel] Aluno cadastrado. ID: ${id_aluno}, RA: ${ra}, Usuário ID: ${resultUsuario.rows[0].id_usuario}`);
+            return { sucesso: true, senhaGerada };
+
         } catch (error) {
-            console.error(`[AlunoModel] Erro ao cadastrar aluno:`, error);
+            // Reverte aluno e usuário caso qualquer etapa falhe
+            await client.query('ROLLBACK');
+            console.error(`[AlunoModel] Erro ao cadastrar aluno (transação revertida):`, error);
             throw error;
+        } finally {
+            // Devolve a conexão ao pool independentemente do resultado
+            client.release();
         }
     }
 

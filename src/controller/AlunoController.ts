@@ -25,22 +25,25 @@ class AlunoController extends Aluno {
      */
     static async todos(req: Request, res: Response) {
         try {
-            // Chama o método do model que busca todos os alunos ativos no banco de dados
-            const listaDeAlunos = await Aluno.listarAlunos();
+            // Lê o id do aluno vinculado ao usuário logado (null = admin sem filtro)
+            const idAluno: number | null = res.locals.idAluno;
+
+            // Se idAluno for null, o usuário é admin — busca todos os alunos ativos
+            // Se idAluno tiver um valor, é um 'user' — busca apenas o próprio aluno
+            const listaDeAlunos = idAluno !== null
+                ? [await Aluno.listarAluno(idAluno)]  // array com apenas o próprio aluno
+                : await Aluno.listarAlunos();          // todos os alunos (admin)
 
             // Se o array estiver vazio, não há alunos cadastrados — retorna 204 (No Content)
-            // 204 indica que a requisição foi bem-sucedida, mas não há conteúdo para retornar
-            // É diferente de um erro — a consulta funcionou, simplesmente não há dados
             if (listaDeAlunos.length === 0) {
                 res.status(204).send();
-                return; // "return" encerra o método para não executar o código abaixo
+                return;
             }
 
             // Retorna a lista de alunos em formato JSON com status 200 (OK)
             res.status(200).json(listaDeAlunos);
 
         } catch (error) {
-            // Se ocorrer qualquer erro inesperado, exibe no console e retorna status 500
             console.error(`[AlunoController] Erro ao listar alunos:`, error);
             res.status(500).json({ mensagem: "Erro interno ao recuperar a lista de alunos." });
         }
@@ -56,14 +59,21 @@ class AlunoController extends Aluno {
     static async aluno(req: Request, res: Response) {
         try {
             // Lê o parâmetro "id" da URL e converte de string para número inteiro
-            // "as string" garante ao TypeScript que o valor existe e é uma string antes do parseInt
             const idAluno = parseInt(req.params.id as string);
 
             // parseInt retorna NaN se o valor não for um número válido (ex: /api/alunos/abc)
-            // isNaN() detecta isso e retorna 400 (Bad Request) antes de chegar no banco
             if (isNaN(idAluno) || idAluno <= 0) {
                 res.status(400).json({ mensagem: "ID inválido. Informe um número inteiro positivo." });
                 return;
+            }
+
+            // Controle de acesso: usuários com role 'user' só podem ver os próprios dados
+            // Se res.locals.idAluno não é null (user) e é diferente do ID solicitado, bloqueia
+            const idAlunoDaSessao: number | null = res.locals.idAluno;
+            if (idAlunoDaSessao !== null && idAlunoDaSessao !== idAluno) {
+                return res.status(403).json({
+                    mensagem: "Acesso negado. Você só pode visualizar seus próprios dados."
+                });
             }
 
             // Chama o método do model passando o ID para buscar o aluno específico no banco
@@ -73,11 +83,8 @@ class AlunoController extends Aluno {
             res.status(200).json(aluno);
 
         } catch (error: any) {
-            // "error: any" permite inspecionar a mensagem do erro para diferenciar os casos
             console.error(`[AlunoController] Erro ao buscar aluno (id: ${req.params.id}):`, error);
 
-            // O model lança um erro com "não encontrado" quando o ID não existe no banco
-            // Aqui diferenciamos esse caso (404) de um erro inesperado de banco (500)
             if (error.message?.includes("não encontrado")) {
                 res.status(404).json({ mensagem: error.message });
                 return;
@@ -122,12 +129,19 @@ class AlunoController extends Aluno {
             );
 
             // Chama o método do model para persistir o novo aluno no banco de dados
+            // O model retorna o sucesso e a senha gerada automaticamente para o usuário vinculado
             const result = await Aluno.cadastrarAluno(novoAluno);
 
-            // O model retorna true se o INSERT foi bem-sucedido, false caso contrário
-            if (result) {
-                // 201 Created — recurso criado com sucesso (semântica correta para POST)
-                res.status(201).json({ mensagem: "Aluno cadastrado com sucesso." });
+            // result.sucesso é true se aluno e usuário foram criados com sucesso na transação
+            if (result.sucesso) {
+                // 201 Created — inclui a senha gerada para que o admin possa comunicar ao aluno
+                res.status(201).json({
+                    mensagem: "Aluno cadastrado com sucesso. Um acesso foi criado automaticamente.",
+                    acesso: {
+                        email: dadosRecebidos.email,
+                        senhaProvisoria: result.senhaGerada
+                    }
+                });
             } else {
                 // 400 Bad Request — falha de negócio, não erro de servidor
                 res.status(400).json({ mensagem: "Não foi possível cadastrar o aluno." });
