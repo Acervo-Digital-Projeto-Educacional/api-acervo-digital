@@ -94,7 +94,7 @@ export class Auth {
      * @returns Token de autenticação do usuário
      */
     static generateToken(id: number, nome: string, email: string, role: string, idAluno: number | null) {
-        return jwt.sign({ id, nome, email, role, idAluno }, SECRET, { expiresIn: '1h' });
+        return jwt.sign({ id, nome, email, role, idAluno }, SECRET, { expiresIn: '3d' });
     }
 
     /**
@@ -152,9 +152,9 @@ export class Auth {
 
             // Popula res.locals com os dados do usuário autenticado
             // Esses dados são usados pelos middlewares de autorização (Authorize.ts) e controllers
-            res.locals.userId   = id;
+            res.locals.userId = id;
             res.locals.userRole = role;
-            res.locals.idAluno  = idAluno ?? null;
+            res.locals.idAluno = idAluno ?? null;
 
             // Mantém compatibilidade com código que usa req.headers['userId']
             req.headers['userId'] = String(id);
