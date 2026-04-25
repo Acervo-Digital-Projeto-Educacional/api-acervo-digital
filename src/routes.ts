@@ -10,6 +10,7 @@ import { Authorize } from "./middleware/Authorize.js";
 import AlunoController from "./controller/AlunoController.js";
 import LivroController from "./controller/LivroController.js";
 import EmprestimoController from "./controller/EmprestimoController.js";
+import UsuarioController from "./controller/UsuarioController.js";
 
 // Cria uma instância do Router — é neste objeto que todas as rotas serão registradas
 // Cada rota associa um método HTTP + caminho de URL a um método do controller
@@ -29,6 +30,16 @@ router.get('/', (req: Request, res: Response) => {
 // Rota pública — não exige autenticação
 router.post('/api/login', Auth.validacaoUsuario);
 
+// ==================== ENDPOINTS DE USUARIO ====================
+// Convenção de acesso:
+//   verifyToken  → autentica (quem é você?)
+//   requireAdmin → escrita: somente admin pode criar, editar ou remover
+
+router.get('/api/usuarios', Auth.verifyToken, Authorize.requireAdmin, UsuarioController.todos);
+
+// Cadastra usuário: somente admin
+router.post('/api/usuarios', Auth.verifyToken, Authorize.requireAdmin, UsuarioController.cadastrar);
+
 // ==================== ENDPOINTS DE ALUNO ====================
 // Convenção de acesso:
 //   verifyToken  → autentica (quem é você?)
@@ -36,54 +47,54 @@ router.post('/api/login', Auth.validacaoUsuario);
 //   requireAdmin → escrita: somente admin pode criar, editar ou remover
 
 // Lista alunos: admin vê todos; user vê apenas si mesmo
-router.get('/api/alunos',        Auth.verifyToken, Authorize.requireSelf,  AlunoController.todos);
+router.get('/api/alunos', Auth.verifyToken, Authorize.requireSelf, AlunoController.todos);
 
 // Busca aluno por ID: admin qualquer; user somente o próprio (validação extra no controller)
-router.get('/api/alunos/:id',    Auth.verifyToken, Authorize.requireSelf,  AlunoController.aluno);
+router.get('/api/alunos/:id', Auth.verifyToken, Authorize.requireSelf, AlunoController.aluno);
 
 // Cadastra aluno: somente admin — cria também o usuário vinculado automaticamente
-router.post('/api/alunos',       Auth.verifyToken, Authorize.requireAdmin, AlunoController.cadastrar);
+router.post('/api/alunos', Auth.verifyToken, Authorize.requireAdmin, AlunoController.cadastrar);
 
 // Remove aluno: somente admin
 router.delete('/api/alunos/:id', Auth.verifyToken, Authorize.requireAdmin, AlunoController.remover);
 
 // Atualiza aluno: admin atualiza qualquer um; user atualiza apenas o próprio
-router.put('/api/alunos/:id',    Auth.verifyToken, Authorize.requireSelf,  AlunoController.atualizar);
+router.put('/api/alunos/:id', Auth.verifyToken, Authorize.requireSelf, AlunoController.atualizar);
 
 // ==================== ENDPOINTS DE LIVRO ====================
 // Livros são recursos de consulta pública (qualquer usuário autenticado pode listar/ver)
 // Somente admin pode criar, editar ou remover livros do acervo
 
 // Lista todos os livros: qualquer usuário autenticado
-router.get('/api/livros',        Auth.verifyToken, LivroController.todos);
+router.get('/api/livros', Auth.verifyToken, LivroController.todos);
 
 // Busca livro por ID: qualquer usuário autenticado
-router.get('/api/livros/:id',    Auth.verifyToken, LivroController.livro);
+router.get('/api/livros/:id', Auth.verifyToken, LivroController.livro);
 
 // Cadastra livro: somente admin
-router.post('/api/livros',       Auth.verifyToken, Authorize.requireAdmin, LivroController.cadastrar);
+router.post('/api/livros', Auth.verifyToken, Authorize.requireAdmin, LivroController.cadastrar);
 
 // Remove livro: somente admin
 router.delete('/api/livros/:id', Auth.verifyToken, Authorize.requireAdmin, LivroController.remover);
 
 // Atualiza livro: somente admin
-router.put('/api/livros/:id',    Auth.verifyToken, Authorize.requireAdmin, LivroController.atualizar);
+router.put('/api/livros/:id', Auth.verifyToken, Authorize.requireAdmin, LivroController.atualizar);
 
 // ==================== ENDPOINTS DE EMPRÉSTIMO ====================
 // Lista empréstimos: admin vê todos; user vê apenas os seus
-router.get('/api/emprestimos',        Auth.verifyToken, Authorize.requireSelf,  EmprestimoController.todos);
+router.get('/api/emprestimos', Auth.verifyToken, Authorize.requireSelf, EmprestimoController.todos);
 
 // Busca empréstimo por ID: admin qualquer; user somente os seus (validação extra no controller)
-router.get('/api/emprestimos/:id',    Auth.verifyToken, Authorize.requireSelf,  EmprestimoController.emprestimo);
+router.get('/api/emprestimos/:id', Auth.verifyToken, Authorize.requireSelf, EmprestimoController.emprestimo);
 
 // Cadastra empréstimo: somente admin
-router.post('/api/emprestimos',       Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.cadastrar);
+router.post('/api/emprestimos', Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.cadastrar);
 
 // Remove empréstimo: somente admin
 router.delete('/api/emprestimos/:id', Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.remover);
 
 // Atualiza empréstimo: somente admin
-router.put('/api/emprestimos/:id',    Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.atualizar);
+router.put('/api/emprestimos/:id', Auth.verifyToken, Authorize.requireAdmin, EmprestimoController.atualizar);
 
 // Exporta o router para ser registrado no server.ts via server.use(router)
 // Exportação nomeada { router } permite importar com nome explícito: import { router } from "./routes.js"
