@@ -7,7 +7,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "NODE_ENV=development nodemon",
-    "prod": "NODE_ENV=production nodemon"
+    "prod": "NODE_ENV=production nodemon",
+    "build": "tsc",
+    "start": "node dist/app.js"
   },
   "keywords": [],
   "author": "Prof. Renato Oliveira",
