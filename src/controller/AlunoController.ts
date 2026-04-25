@@ -216,6 +216,15 @@ class AlunoController extends Aluno {
                 return;
             }
 
+            // Controle de acesso: usuários com role 'user' só podem atualizar os próprios dados
+            // Se res.locals.idAluno não é null (user) e é diferente do ID solicitado, bloqueia
+            const idAlunoDaSessao: number | null = res.locals.idAluno;
+            if (idAlunoDaSessao !== null && idAlunoDaSessao !== idAluno) {
+                return res.status(403).json({
+                    mensagem: "Acesso negado. Você só pode atualizar seus próprios dados."
+                });
+            }
+
             // Lê os dados enviados pelo front-end no corpo da requisição
             const dadosRecebidos: AlunoDTO = req.body;
 

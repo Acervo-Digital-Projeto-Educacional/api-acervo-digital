@@ -47,8 +47,8 @@ router.post('/api/alunos',       Auth.verifyToken, Authorize.requireAdmin, Aluno
 // Remove aluno: somente admin
 router.delete('/api/alunos/:id', Auth.verifyToken, Authorize.requireAdmin, AlunoController.remover);
 
-// Atualiza aluno: somente admin
-router.put('/api/alunos/:id',    Auth.verifyToken, Authorize.requireAdmin, AlunoController.atualizar);
+// Atualiza aluno: admin atualiza qualquer um; user atualiza apenas o próprio
+router.put('/api/alunos/:id',    Auth.verifyToken, Authorize.requireSelf,  AlunoController.atualizar);
 
 // ==================== ENDPOINTS DE LIVRO ====================
 // Livros são recursos de consulta pública (qualquer usuário autenticado pode listar/ver)
