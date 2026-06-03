@@ -24,7 +24,7 @@ Content-Type: application/json
   "nome": "Joselito",
   "sobrenome": "Freitas",
   "data_nascimento": "2003-07-10T03:00:00.000Z",
-  "endereco": "Rua do Ingá, 811",
+  "endereco": "Rua do Ingá, 001",
   "email": "joselito@semnocao.com",
   "celular": "16991915545"
 }
