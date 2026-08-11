@@ -1,0 +1,20 @@
+name: Keep Render API Alive
+
+on:
+  schedule:
+    # Executa todos os dias às 03:00 UTC
+    - cron: "0 3 * * *"
+
+  # Permite executar manualmente pelo GitHub
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Render API
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 30 \
+            https://api-acervo-digital.onrender.com/
